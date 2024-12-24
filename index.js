@@ -25,6 +25,7 @@ async function run() {
     const db = client.db('foodsDB')
 
     const foodsCollection = db.collection('foods')
+    const orderCollection = db.collection('orders')
 
     // save data in mongo db
     app.post('/add-foods' , async(req,res)=>{
@@ -75,13 +76,52 @@ app.put('/update-food/:id', async (req,res)=>{
   // console.log(result);
   res.send(result)
   })
+//////  purchase food
+app.post('/purchase' , async (req,res)=>{
+  // saving order to db
+  const orderData = req.body
+  const result = await orderCollection.insertOne(orderData)
 
 
+  // now incrase total sold in foods db
+  const filter = {_id: new ObjectId(orderData.foodId)}
+  const update = {
+    $inc:{total_sold: 1}
+  }
+  const updateCount = await foodsCollection.updateOne(filter, update)
+  res.send(result)
+})
 
 
+// get all orders of a single user
+
+app.get('/orders/:email', async(req,res)=>{
+  const email = req.params.email
+  const query = {buyerEmail:email}
+
+const result = await orderCollection.find(query).toArray()
+res.send(result)
 
 
+})
 
+// delete 
+app.delete('/orders/:id' , async(req,res)=>{
+  const id = req.params.id
+  const query = {_id: new ObjectId(id)}
+  const result = await orderCollection.deleteOne(query)
+  res.send(result)
+})
+
+app.get('/all-orders/:email', async(req,res)=>{
+  const email = req.params.email
+  const query = {addBy:email}
+
+const result = await orderCollection.find(query).toArray()
+res.send(result)
+
+
+})
 
 
 
