@@ -35,10 +35,22 @@ async function run() {
       res.send(result)
     })
     // GET ALL FOODS DATA TO RENDER IN CARD
-    app.get('/foods', async(req,res)=>{
-      const result =await foodsCollection.find().toArray()
-      res.send(result)
-    })
+    app.get('/foods', async(req, res) => {
+      const search = req.query.search || ''; // Get search query
+      const query = search
+        ? { name: { $regex: search, $options: 'i' } } // Case-insensitive search by name
+        : {}; // No filter if search is empty
+    
+      try {
+        const result = await foodsCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Error retrieving foods');
+      }
+    });
+    
+    
     // get all foods added a specific user
     app.get('/foods/:email' , async (req,res)=>{
       const email = req.params.email
@@ -122,7 +134,6 @@ res.send(result)
 
 
 })
-
 
 
 
