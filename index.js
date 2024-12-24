@@ -223,6 +223,24 @@ app.post('/jwt', async(req,res)=>{
       }
     });
 
+    app.get("/top-foods", async (req, res) => {
+      try {
+        // Fetch the top 6 foods based on total_sold, sorted in descending order
+        const topFoods = await foodsCollection.find()
+          .sort({ total_sold: -1 }) // Sort by total_sold in descending order
+          .limit(6) // Limit the results to top 6 foods
+          .toArray();
+    
+        // Send the fetched foods data to the frontend
+        res.send(topFoods);
+      } catch (error) {
+        console.error("Error fetching top foods:", error);
+        res.status(500).send({ message: "Failed to fetch top foods" });
+      }
+    });
+    
+
+
     // Ping MongoDB to verify connection
     await client.db("admin").command({ ping: 1 });
     console.log(
