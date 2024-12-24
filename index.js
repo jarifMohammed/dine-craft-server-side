@@ -3,6 +3,7 @@ const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const jwt = require('jsonwebtoken')
+const cookieParser = require('cookie-parser')
 
 const port = process.env.PORT || 3000;
 const app = express();
@@ -15,6 +16,7 @@ const corsOptions ={
 
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(cookieParser())
 
 const uri = `mongodb+srv://${process.env.DB_NAME}:${process.env.DB_PASS}@cluster0.trszs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -34,6 +36,22 @@ async function run() {
     const foodsCollection = db.collection("foods");
     const orderCollection = db.collection("orders");
 
+    // verify token
+// verifyToken
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token
+  if (!token) return res.status(401).send({ message: 'unauthorized access' })
+  jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: 'unauthorized access' })
+    }
+    req.user = decoded
+  })
+
+  next()
+}
+
+
     // Jwt genarate
 
 
@@ -44,7 +62,7 @@ app.post('/jwt', async(req,res)=>{
     expiresIn:'365d'
 
   })
-  console.log(token);
+  // console.log(token);
   res.cookie('token', token,{
     httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
@@ -104,8 +122,13 @@ app.post('/jwt', async(req,res)=>{
     });
 
     // get all foods added a specific user
-    app.get("/foods/:email", async (req, res) => {
+    app.get("/foods/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
+      const decodedEmail = req.user?.email
+      // console.log('email from token-->' , decodedEmail);
+      // console.log('email from params-->', email);
+      if (decodedEmail !== email)
+        return res.status(401).send({ message: 'unauthorized access' })
       const query = { "addBy.addedBy": email };
       const result = await foodsCollection.find(query).toArray();
       res.send(result);
@@ -156,12 +179,22 @@ app.post('/jwt', async(req,res)=>{
 
     // get all orders of a single user
 
-    app.get("/orders/:email", async (req, res) => {
+    app.get("/orders/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
+      const decodedEmail = req.user?.email;
+    
+      if (decodedEmail !== email) {
+        return res.status(401).send({ message: "Unauthorized access" });
+      }
+    
       const query = { buyerEmail: email };
-
-      const result = await orderCollection.find(query).toArray();
-      res.send(result);
+      try {
+        const result = await orderCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching orders:", error);
+        res.status(500).send({ message: "Failed to fetch orders" });
+      }
     });
 
     // delete
@@ -172,12 +205,22 @@ app.post('/jwt', async(req,res)=>{
       res.send(result);
     });
 
-    app.get("/all-orders/:email", async (req, res) => {
+    app.get("/all-orders/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
+      const decodedEmail = req.user?.email;
+    
+      if (decodedEmail !== email) {
+        return res.status(401).send({ message: "Unauthorized access" });
+      }
+    
       const query = { addBy: email };
-
-      const result = await orderCollection.find(query).toArray();
-      res.send(result);
+      try {
+        const result = await orderCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching all orders:", error);
+        res.status(500).send({ message: "Failed to fetch all orders" });
+      }
     });
 
     // Ping MongoDB to verify connection
