@@ -7,7 +7,13 @@ const jwt = require('jsonwebtoken')
 const port = process.env.PORT || 3000;
 const app = express();
 
-app.use(cors());
+const corsOptions ={
+  origin:['http://localhost:5173'],
+  credentials : true,
+  optionalSuccessStatus: 200
+}
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_NAME}:${process.env.DB_PASS}@cluster0.trszs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -30,6 +36,32 @@ async function run() {
 
     // Jwt genarate
 
+
+app.post('/jwt', async(req,res)=>{
+  const email = req.body
+  // create token
+  const token = jwt.sign(email, process.env.SECRET_KEY, {
+    expiresIn:'365d'
+
+  })
+  console.log(token);
+  res.cookie('token', token,{
+    httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+  }).send({success:true})
+})
+
+ // logout || clear cookie from browser
+ app.get('/logout', async (req, res) => {
+  res
+    .clearCookie('token', {
+      maxAge: 0,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+    })
+    .send({ success: true });
+});
 
 
 
