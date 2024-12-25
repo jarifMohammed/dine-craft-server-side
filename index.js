@@ -2,21 +2,25 @@ const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
-const jwt = require('jsonwebtoken')
-const cookieParser = require('cookie-parser')
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 
 const port = process.env.PORT || 3000;
 const app = express();
 
-const corsOptions ={
-  origin:['http://localhost:5173'],
-  credentials : true,
-  optionalSuccessStatus: 200
-}
+const corsOptions = {
+  origin: [
+    "http://localhost:5173",
+    "https://fast-art-409718.web.app",
+    "https://fast-art-409718.firebaseapp.com",
+  ],
+  credentials: true,
+  optionalSuccessStatus: 200,
+};
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use(cookieParser())
+app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.DB_NAME}:${process.env.DB_PASS}@cluster0.trszs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -37,66 +41,49 @@ async function run() {
     const orderCollection = db.collection("orders");
 
     // verify token
-// verifyToken
-const verifyToken = (req, res, next) => {
-  const token = req.cookies?.token
-  if (!token) return res.status(401).send({ message: 'unauthorized access' })
-  jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
-    if (err) {
-      return res.status(401).send({ message: 'unauthorized access' })
-    }
-    req.user = decoded
-  })
+    // verifyToken
+    const verifyToken = (req, res, next) => {
+      const token = req.cookies?.token;
+      if (!token)
+        return res.status(401).send({ message: "unauthorized access" });
+      jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "unauthorized access" });
+        }
+        req.user = decoded;
+      });
 
-  next()
-}
-
+      next();
+    };
 
     // Jwt genarate
 
+    app.post("/jwt", async (req, res) => {
+      const email = req.body;
+      // create token
+      const token = jwt.sign(email, process.env.SECRET_KEY, {
+        expiresIn: "365d",
+      });
+      // console.log(token);
+      res
+        .cookie("token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        })
+        .send({ success: true });
+    });
 
-app.post('/jwt', async(req,res)=>{
-  const email = req.body
-  // create token
-  const token = jwt.sign(email, process.env.SECRET_KEY, {
-    expiresIn:'365d'
-
-  })
-  // console.log(token);
-  res.cookie('token', token,{
-    httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-  }).send({success:true})
-})
-
- // logout || clear cookie from browser
- app.get('/logout', async (req, res) => {
-  res
-    .clearCookie('token', {
-      maxAge: 0,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-    })
-    .send({ success: true });
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    // logout || clear cookie from browser
+    app.get("/logout", async (req, res) => {
+      res
+        .clearCookie("token", {
+          maxAge: 0,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        })
+        .send({ success: true });
+    });
 
     // save data in mongo db
     app.post("/add-foods", async (req, res) => {
@@ -124,11 +111,11 @@ app.post('/jwt', async(req,res)=>{
     // get all foods added a specific user
     app.get("/foods/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
-      const decodedEmail = req.user?.email
+      const decodedEmail = req.user?.email;
       // console.log('email from token-->' , decodedEmail);
       // console.log('email from params-->', email);
       if (decodedEmail !== email)
-        return res.status(401).send({ message: 'unauthorized access' })
+        return res.status(401).send({ message: "unauthorized access" });
       const query = { "addBy.addedBy": email };
       const result = await foodsCollection.find(query).toArray();
       res.send(result);
@@ -182,11 +169,11 @@ app.post('/jwt', async(req,res)=>{
     app.get("/orders/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const decodedEmail = req.user?.email;
-    
+
       if (decodedEmail !== email) {
         return res.status(401).send({ message: "Unauthorized access" });
       }
-    
+
       const query = { buyerEmail: email };
       try {
         const result = await orderCollection.find(query).toArray();
@@ -208,11 +195,11 @@ app.post('/jwt', async(req,res)=>{
     app.get("/all-orders/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const decodedEmail = req.user?.email;
-    
+
       if (decodedEmail !== email) {
         return res.status(401).send({ message: "Unauthorized access" });
       }
-    
+
       const query = { addBy: email };
       try {
         const result = await orderCollection.find(query).toArray();
@@ -226,11 +213,12 @@ app.post('/jwt', async(req,res)=>{
     app.get("/top-foods", async (req, res) => {
       try {
         // Fetch the top 6 foods based on total_sold, sorted in descending order
-        const topFoods = await foodsCollection.find()
+        const topFoods = await foodsCollection
+          .find()
           .sort({ total_sold: -1 }) // Sort by total_sold in descending order
           .limit(6) // Limit the results to top 6 foods
           .toArray();
-    
+
         // Send the fetched foods data to the frontend
         res.send(topFoods);
       } catch (error) {
@@ -238,8 +226,6 @@ app.post('/jwt', async(req,res)=>{
         res.status(500).send({ message: "Failed to fetch top foods" });
       }
     });
-    
-
 
     // Ping MongoDB to verify connection
     await client.db("admin").command({ ping: 1 });
